@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -124,7 +124,6 @@ h1 { font-size: clamp(1.4rem,5vw,2rem); font-weight: 900; color: var(--text); le
 .btn-next { background:linear-gradient(135deg,#b36bd4,#ff6fd8); color:#fff; box-shadow:0 4px 20px rgba(179,107,212,0.4); }
 .btn-next:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(179,107,212,0.5); }
 .btn-submit { background:linear-gradient(135deg,#f7c948,#ff8c42); color:#fff; box-shadow:0 4px 20px rgba(247,201,72,0.5); }
-.btn-submit:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(247,201,72,0.6); }
 
 .error-hint { color:#c0392b; font-size:0.82rem; font-weight:700; margin-top:8px; display:none; }
 .error-hint.show { display:block; }
@@ -185,7 +184,6 @@ h1 { font-size: clamp(1.4rem,5vw,2rem); font-weight: 900; color: var(--text); le
 }
 #adminBtn:hover { background:#b36bd4; transform:translateY(-2px); }
 
-/* login overlay */
 #adminLogin, #adminPanel {
   display:none; position:fixed; inset:0; z-index:2000;
   background:rgba(20,5,40,0.75); backdrop-filter:blur(8px);
@@ -198,7 +196,6 @@ h1 { font-size: clamp(1.4rem,5vw,2rem); font-weight: 900; color: var(--text); le
   background:#fff; border-radius:22px; padding:40px 36px;
   max-width:360px; width:100%; text-align:center;
   box-shadow:0 20px 60px rgba(0,0,0,0.3);
-  animation:popIn 0.4s cubic-bezier(.34,1.56,.64,1) both;
 }
 .login-box h3 { font-size:1.4rem; font-weight:900; color:var(--text); margin-bottom:6px; }
 .login-box p { font-size:0.85rem; color:#888; margin-bottom:22px; }
@@ -220,7 +217,6 @@ h1 { font-size: clamp(1.4rem,5vw,2rem); font-weight: 900; color: var(--text); le
 .login-err.show { display:block; }
 .login-cancel { display:block; margin-top:14px; font-size:0.85rem; font-weight:700; color:#888; cursor:pointer; text-decoration:underline; }
 
-/* admin panel inner */
 .panel-inner {
   background:#f4f0fb; border-radius:22px;
   width:100%; max-width:860px; max-height:90vh;
@@ -324,7 +320,7 @@ h1 { font-size: clamp(1.4rem,5vw,2rem); font-weight: 900; color: var(--text); le
     <p class="fun-instruction">⚡ Answer honestly... there's no right or wrong answer<br>(unless you say cereal before milk 😜)</p>
   </div>
 
-  <div class="progress-wrap glass">
+  <div class="progress-wrap glass" id="progressCard">
     <span class="progress-label" id="progressLabel">1 / 13</span>
     <div class="progress-track">
       <div class="progress-fill" id="progressFill"></div>
@@ -373,16 +369,45 @@ h1 { font-size: clamp(1.4rem,5vw,2rem); font-weight: 900; color: var(--text); le
 </div>
 
 <script>
-// ── ADMIN CREDENTIALS ──
-// 3 admins: you + 2 others
 const ADMIN_PASSWORDS = ["chetana2024", "uvceadmin1", "uvceadmin2"];
-// Change these passwords as needed!
-
-// ── STORAGE KEY ──
 const STORE_KEY = "uvce_quiz_responses";
 
+const questions = [
+  { id:1, shortLabel:"Name", label:"What's your full name?", hint:"✏️ Write your complete name with address", type:"text", placeholder:"Your full name & address…" },
+  { id:2, shortLabel:"Branch", label:"Which branch are you studying?", hint:"🏫 Example: CSE, ECE, ISE, etc.", type:"text", placeholder:"Your branch…" },
+  { id:3, shortLabel:"Year", label:"What is your current year?", hint:"Select your current year of study", type:"choices", choices:["1st Year","2nd Year","3rd Year","4th Year"] },
+  { id:4, shortLabel:"Subject", label:"Which subject do you enjoy the most?", hint:"Pick one subject that makes college fun", type:"choices", choices:["Algorithms","Design","Networking","Databases"] },
+  { id:5, shortLabel:"Snack", label:"What snack are you most likely to grab during class?", hint:"Fuel for late-night study sessions", type:"choices", choices:["Samosa","Chips","Chocolate","Fruit"] },
+  { id:6, shortLabel:"Campus", label:"Where is your favorite place to hang out on campus?", hint:"The spot that feels most like home", type:"text", placeholder:"Your favorite campus spot…" },
+  { id:7, shortLabel:"Dream", label:"What is your dream destination for a college trip?", hint:"Share the place you'd love to visit", type:"text", placeholder:"Dream destination…" },
+  { id:8, shortLabel:"Music", label:"Which music keeps you motivated?", hint:"Pick the vibe that gets you in the zone", type:"choices", choices:["Hip hop","EDM","Acoustic","Classical"] },
+  { id:9, shortLabel:"Study", label:"Do you prefer studying alone or in a group?", hint:"Choose the study style that works best for you", type:"choices", choices:["Alone","Group","Both"] },
+  { id:10, shortLabel:"Relax", label:"How do you relax after exams?", hint:"Share your go-to unwind activity", type:"choices", choices:["Movie","Walk","Games","Sleep"] },
+  { id:11, shortLabel:"Theme", label:"Pick a color theme for the quiz event", hint:"Your favorite color combo", type:"choices", choices:["Purple","Blue","Pink","Yellow"] },
+  { id:12, shortLabel:"Message", label:"Write a short message for UVCE Chetana", hint:"Leave a fun note for the event team", type:"text", placeholder:"Your message…" },
+  { id:13, shortLabel:"Lucky", label:"What is your lucky number?", hint:"Choose the number that feels lucky today", type:"text", placeholder:"Your lucky number…" }
+];
+
+let currentQuestion = 0;
+const answers = Array(questions.length).fill("");
+const questionsArea = document.getElementById("questionsArea");
+const progressLabel = document.getElementById("progressLabel");
+const progressFill = document.getElementById("progressFill");
+const thankyouCard = document.getElementById("thankyouCard");
+const progressCard = document.getElementById("progressCard");
+
+function escapeHTML(text) {
+  return String(text || "").replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
 function loadResponses() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch(e) { return []; }
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch (e) { return []; }
 }
 function saveResponse(obj) {
   const all = loadResponses();
@@ -390,7 +415,6 @@ function saveResponse(obj) {
   localStorage.setItem(STORE_KEY, JSON.stringify(all));
 }
 
-// ── ADMIN ──
 function openAdmin() {
   document.getElementById("adminLogin").classList.add("show");
   document.getElementById("pwInput").value = "";
@@ -425,20 +449,20 @@ function renderPanel() {
     return;
   }
   const qLabels = questions.map(q => q.shortLabel || q.label);
-  body.innerHTML = `<div class="response-count">📊 ${responses.length} response${responses.length>1?'s':''} collected</div>`;
-  [...responses].reverse().forEach((r, idx) => {
+  body.innerHTML = `<div class="response-count">📊 ${responses.length} response${responses.length > 1 ? 's' : ''} collected</div>`;
+  [...responses].reverse().forEach((r) => {
     const card = document.createElement("div");
     card.className = "resp-card";
     const name = r.answers[0] || "Anonymous";
     const date = new Date(r.timestamp).toLocaleString();
     let fields = "";
     r.answers.forEach((ans, i) => {
-      fields += `<div class="resp-field"><div class="resp-label">${qLabels[i]}</div><div class="resp-val">${ans || "—"}</div></div>`;
+      fields += `<div class="resp-field"><div class="resp-label">${qLabels[i]}</div><div class="resp-val">${ans || '—'}</div></div>`;
     });
     card.innerHTML = `
       <div class="resp-header">
-        <span class="resp-name">👤 ${name}</span>
-        <span class="resp-time">${date}</span>
+        <span class="resp-name">👤 ${escapeHTML(name)}</span>
+        <span class="resp-time">${escapeHTML(date)}</span>
       </div>
       <div class="resp-body">${fields}</div>`;
     body.appendChild(card);
@@ -449,26 +473,119 @@ function exportCSV() {
   const responses = loadResponses();
   if (!responses.length) { alert("No responses to export yet!"); return; }
   const qLabels = questions.map(q => q.shortLabel || q.label);
-  const header = ["Timestamp", ...qLabels].map(l => `"${l}"`).join(",");
+  const header = ["Timestamp", ...qLabels].map(l => `"${l.replace(/"/g, '""')}"`).join(",");
   const rows = responses.map(r => {
     const ts = new Date(r.timestamp).toLocaleString();
-    return [`"${ts}"`, ...r.answers.map(a => `"${(a||"").replace(/"/g,'""')}"`)] .join(",");
+    return [`"${ts.replace(/"/g, '""')}",`, ...r.answers.map(a => `"${String(a || "").replace(/"/g, '""')}"`)].join(",");
   });
   const csv = [header, ...rows].join("\n");
-  const blob = new Blob([csv], {type:"text/csv"});
+  const blob = new Blob([csv], { type: "text/csv" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "chetana_quiz_responses.csv";
   a.click();
 }
 
-// ── QUESTIONS ──
-const questions = [
-  {
-    id:1, shortLabel:"Name",
-    label: "What's your full name?",
-    hint: "✏️ Write your complete name with address",
-    type: "text", placeholder: "Your full name & address…"
-  },
-  {
-    id:2, shortLabel:"Branch",
+function initQuiz() {
+  renderQuestion();
+}
+
+function renderQuestion() {
+  thankyouCard.style.display = "none";
+  progressCard.style.display = "flex";
+  const question = questions[currentQuestion];
+  const currentAnswer = answers[currentQuestion] || "";
+  const choiceButtons = question.type === "choices" ? question.choices.map((choice, idx) => {
+    const selected = currentAnswer === choice ? " selected" : "";
+    return `<button type="button" class="choice-btn${selected}" onclick="selectChoice(${idx})"><span>${escapeHTML(choice)}</span></button>`;
+  }).join("") : "";
+
+  questionsArea.innerHTML = `
+    <div class="question-card active glass">
+      <div class="q-number">Question ${currentQuestion + 1} of ${questions.length}</div>
+      <div class="q-text">${escapeHTML(question.label)}</div>
+      <div class="q-hint">${escapeHTML(question.hint)}</div>
+      ${question.type === "text" ? `<input id="answerInput" class="q-input" type="text" value="${escapeHTML(currentAnswer)}" placeholder="${escapeHTML(question.placeholder || "")}" oninput="saveInput(this.value)" />` : `<div class="choices">${choiceButtons}</div>`}
+      <div class="error-hint" id="errorHint"></div>
+      <div class="nav-row">
+        <button class="nav-btn btn-prev" onclick="prevQuestion()" ${currentQuestion === 0 ? "disabled" : ""}>Previous</button>
+        <button class="nav-btn btn-next" onclick="${currentQuestion === questions.length - 1 ? 'submitQuiz()' : 'nextQuestion()'}">${currentQuestion === questions.length - 1 ? 'Submit' : 'Next'}</button>
+      </div>
+    </div>`;
+
+  updateProgress();
+  if (question.type === "text") {
+    const input = document.getElementById("answerInput");
+    if (input) input.focus();
+  }
+}
+
+function updateProgress() {
+  progressLabel.textContent = `${currentQuestion + 1} / ${questions.length}`;
+  progressFill.style.width = `${Math.round((currentQuestion / questions.length) * 100)}%`;
+}
+
+function saveInput(value) {
+  answers[currentQuestion] = value;
+  hideError();
+}
+
+function selectChoice(index) {
+  const question = questions[currentQuestion];
+  answers[currentQuestion] = question.choices[index];
+  hideError();
+  renderQuestion();
+}
+
+function showError(message) {
+  const error = document.getElementById("errorHint");
+  if (error) {
+    error.textContent = message;
+    error.classList.add("show");
+    error.parentElement.classList.add("shake");
+    setTimeout(() => error.parentElement.classList.remove("shake"), 300);
+  }
+}
+
+function hideError() {
+  const error = document.getElementById("errorHint");
+  if (error) error.classList.remove("show");
+}
+
+function nextQuestion() {
+  if (!answers[currentQuestion] || !answers[currentQuestion].toString().trim()) {
+    showError("Please answer this question before moving on.");
+    return;
+  }
+  if (currentQuestion < questions.length - 1) {
+    currentQuestion += 1;
+    renderQuestion();
+  }
+}
+
+function prevQuestion() {
+  if (currentQuestion > 0) {
+    currentQuestion -= 1;
+    renderQuestion();
+  }
+}
+
+function submitQuiz() {
+  if (!answers[currentQuestion] || !answers[currentQuestion].toString().trim()) {
+    showError("Please answer the final question before submitting.");
+    return;
+  }
+  saveResponse({ timestamp: Date.now(), answers: [...answers] });
+  questionsArea.innerHTML = "";
+  progressCard.style.display = "none";
+  thankyouCard.style.display = "block";
+}
+
+function revealResult() {
+  document.getElementById("gorillaReveal").style.display = "block";
+}
+
+window.addEventListener("DOMContentLoaded", initQuiz);
+</script>
+</body>
+</html>
