@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const { Storage } = require('@google-cloud/storage');
 const db = require('./db');
 
 // Initialize database
@@ -30,89 +29,7 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Initialize Google Cloud Storage Client
-let storage = null;
-let bucket = null;
-const bucketName = process.env.GCS_BUCKET_NAME;
-
-if (bucketName) {
-  try {
-    // 1. Prioritize direct environment variables configuration (best for serverless environments like Vercel)
-    if (process.env.GCP_PROJECT_ID && process.env.GCP_CLIENT_EMAIL && process.env.GCP_PRIVATE_KEY) {
-      storage = new Storage({
-        projectId: process.env.GCP_PROJECT_ID,
-        credentials: {
-          client_email: process.env.GCP_CLIENT_EMAIL,
-          private_key: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n')
-        }
-      });
-      console.log("Google Cloud Storage client initialized using direct GCP credentials env variables.");
-    } 
-    // 2. Fall back to GOOGLE_APPLICATION_CREDENTIALS file path
-    else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      const credsPath = path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS);
-      if (fs.existsSync(credsPath)) {
-        storage = new Storage({ keyFilename: credsPath });
-        console.log(`Google Cloud Storage client initialized using keyFilename at: ${credsPath}`);
-      } else {
-        console.warn(`Warning: GOOGLE_APPLICATION_CREDENTIALS file not found at: ${credsPath}. Attempting to use default credentials.`);
-        storage = new Storage();
-      }
-    } 
-    // 3. Fall back to Application Default Credentials
-    else {
-      storage = new Storage();
-      console.log("Google Cloud Storage client initialized using default credentials.");
-    }
-    
-    bucket = storage.bucket(bucketName);
-  } catch (err) {
-    console.error("Failed to initialize Google Cloud Storage client:", err.message);
-  }
-} else {
-  console.log("No GCS_BUCKET_NAME configured. Running in local-only fallback mode.");
-}
-
 // Helpers
-async function uploadToGCS(fileName, fileContent) {
-  if (!bucket) return false;
-  try {
-    const file = bucket.file(`responses/${fileName}`);
-    await file.save(fileContent, {
-      contentType: 'application/json',
-      resumable: false,
-    });
-    console.log(`Successfully uploaded response to GCS: responses/${fileName}`);
-    return true;
-  } catch (err) {
-    console.error(`GCS upload failed for ${fileName}:`, err.message);
-    return false;
-  }
-}
-
-async function fetchResponsesFromGCS() {
-  if (!bucket) return null;
-  try {
-    const [files] = await bucket.getFiles({ prefix: 'responses/' });
-    const fetchPromises = files
-      .filter(file => file.name.endsWith('.json'))
-      .map(async (file) => {
-        try {
-          const [content] = await file.download();
-          return JSON.parse(content.toString());
-        } catch (e) {
-          console.error(`Error downloading GCS file ${file.name}:`, e.message);
-          return null;
-        }
-      });
-    const results = await Promise.all(fetchPromises);
-    return results.filter(r => r !== null);
-  } catch (err) {
-    console.error("Failed to fetch responses from GCS bucket:", err.message);
-    return null;
-  }
-}
-
 function saveLocalResponse(fileName, contentString) {
   try {
     const filePath = path.join(DATA_DIR, fileName);
@@ -152,22 +69,9 @@ function fetchLocalResponses() {
 
 // Check connection status
 app.get('/api/status', async (req, res) => {
-  let gcsConnected = false;
-  if (bucket) {
-    try {
-      const [exists] = await bucket.exists();
-      gcsConnected = exists;
-    } catch (e) {
-      gcsConnected = false;
-      console.warn("GCS connectivity check failed:", e.message);
-    }
-  }
-  
   const dbInfo = db.getDbInfo();
   
   res.json({
-    gcsConnected,
-    bucketName: bucketName || null,
     localCount: fetchLocalResponses().length,
     isVercel: !!process.env.VERCEL,
     dbType: dbInfo.type,
@@ -207,18 +111,11 @@ app.post('/api/responses', async (req, res) => {
   
   // 2. Save local backup file
   const localSaved = saveLocalResponse(fileName, contentString);
-  
-  // 3. Upload to GCS if configured
-  let storedInCloud = false;
-  if (bucket) {
-    storedInCloud = await uploadToGCS(fileName, contentString);
-  }
 
   res.json({
     success: true,
     id: responseId,
     sqlSaved,
-    storedInCloud,
     localSaved
   });
 });
@@ -238,15 +135,9 @@ app.get('/api/responses', async (req, res) => {
   }
   
   if (responses === null) {
-    console.log("SQL responses not available, falling back to files / GCS.");
-    if (bucket) {
-      responses = await fetchResponsesFromGCS();
-      isFromCloud = true;
-    }
-    if (responses === null) {
-      responses = fetchLocalResponses();
-      isFromCloud = false;
-    }
+    console.log("SQL responses not available, falling back to local files.");
+    responses = fetchLocalResponses();
+    isFromCloud = false;
     responses.sort((a, b) => b.timestamp - a.timestamp);
   }
 
@@ -271,20 +162,6 @@ app.delete('/api/responses/:id', async (req, res) => {
         fs.unlinkSync(localFilePath);
       } catch (err) {
         console.warn(`Could not delete local backup file ${localFileName}:`, err.message);
-      }
-    }
-
-    // GCS delete if bucket is configured
-    if (bucket) {
-      try {
-        const file = bucket.file(`responses/${localFileName}`);
-        const [exists] = await file.exists();
-        if (exists) {
-          await file.delete();
-          console.log(`Deleted response from GCS: responses/${localFileName}`);
-        }
-      } catch (err) {
-        console.warn(`Could not delete response from GCS bucket:`, err.message);
       }
     }
 
