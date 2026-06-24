@@ -98,12 +98,16 @@ async function getResponses() {
     answers: JSON.parse(row.answers)
   }));
 }
+async function deleteResponse(id) {
+  await query(`DELETE FROM responses WHERE id = $1`, [id]);
+}
 
 module.exports = {
   init,
   query,
   saveResponse,
   getResponses,
+  deleteResponse,
   isPostgres: () => isPostgres,
   getDbInfo: () => ({
     type: isPostgres ? 'PostgreSQL' : 'SQLite',

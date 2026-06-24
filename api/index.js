@@ -257,6 +257,44 @@ app.get('/api/responses', async (req, res) => {
   });
 });
 
+// Delete a response
+app.delete('/api/responses/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.deleteResponse(id);
+    
+    // Attempt to delete local backup file if it exists
+    const localFileName = `response-${id}.json`;
+    const localFilePath = path.join(DATA_DIR, localFileName);
+    if (fs.existsSync(localFilePath)) {
+      try {
+        fs.unlinkSync(localFilePath);
+      } catch (err) {
+        console.warn(`Could not delete local backup file ${localFileName}:`, err.message);
+      }
+    }
+
+    // GCS delete if bucket is configured
+    if (bucket) {
+      try {
+        const file = bucket.file(`responses/${localFileName}`);
+        const [exists] = await file.exists();
+        if (exists) {
+          await file.delete();
+          console.log(`Deleted response from GCS: responses/${localFileName}`);
+        }
+      } catch (err) {
+        console.warn(`Could not delete response from GCS bucket:`, err.message);
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`Failed to delete response ${id}:`, err.message);
+    res.status(500).json({ error: "Failed to delete response." });
+  }
+});
+
 // Start Server locally if run directly
 if (require.main === module) {
   app.listen(PORT, () => {
