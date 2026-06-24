@@ -1,11 +1,17 @@
 require('dotenv').config();
-const { Pool } = require('pg');
+const mysql = require('mysql2/promise');
 const path = require('path');
 const fs = require('fs');
 
-const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL;
-let isPostgres = false;
-let pgPool = null;
+const connectionString = process.env.DATABASE_URL || process.env.MYSQL_URL;
+const mysqlHost = process.env.MYSQLHOST || process.env.MYSQL_HOST;
+const mysqlUser = process.env.MYSQLUSER || process.env.MYSQL_USER;
+const mysqlPassword = process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD;
+const mysqlDatabase = process.env.MYSQLDATABASE || process.env.MYSQL_DATABASE;
+const mysqlPort = process.env.MYSQLPORT || process.env.MYSQL_PORT;
+
+let isMySQL = false;
+let mysqlPool = null;
 let sqliteDb = null;
 let isSqlSupported = true;
 
@@ -20,28 +26,54 @@ if (!fs.existsSync(DATA_DIR)) {
 const sqlitePath = path.join(DATA_DIR, 'responses.db');
 
 async function init() {
-  if (connectionString) {
-    console.log("Initializing PostgreSQL database client...");
+  const hasMySQLConfig = connectionString || (mysqlHost && mysqlUser);
+  
+  if (hasMySQLConfig) {
+    console.log("Initializing MySQL database pool...");
     try {
-      pgPool = new Pool({
-        connectionString,
-        ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
-          ? false
-          : { rejectUnauthorized: false }
-      });
+      if (connectionString) {
+        const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+        const poolConfig = {
+          uri: connectionString,
+          waitForConnections: true,
+          connectionLimit: 5,
+          queueLimit: 0
+        };
+        if (!isLocal) {
+          poolConfig.ssl = { rejectUnauthorized: false };
+        }
+        mysqlPool = mysql.createPool(poolConfig);
+      } else {
+        const poolConfig = {
+          host: mysqlHost,
+          user: mysqlUser,
+          password: mysqlPassword,
+          database: mysqlDatabase,
+          port: mysqlPort ? parseInt(mysqlPort) : 3306,
+          waitForConnections: true,
+          connectionLimit: 5,
+          queueLimit: 0
+        };
+        const isLocal = mysqlHost.includes('localhost') || mysqlHost.includes('127.0.0.1');
+        if (!isLocal) {
+          poolConfig.ssl = { rejectUnauthorized: false };
+        }
+        mysqlPool = mysql.createPool(poolConfig);
+      }
+      
       // Test the connection
-      await pgPool.query('SELECT NOW()');
-      isPostgres = true;
-      console.log("PostgreSQL connection successful.");
+      await mysqlPool.execute('SELECT 1');
+      isMySQL = true;
+      console.log("MySQL connection successful.");
     } catch (err) {
-      console.error("PostgreSQL connection failed, falling back to local SQLite:", err.message);
-      pgPool = null;
+      console.error("MySQL connection failed, falling back to SQLite:", err.message);
+      mysqlPool = null;
     }
   }
 
-  if (!isPostgres) {
+  if (!isMySQL) {
     if (process.env.VERCEL) {
-      console.warn("Vercel environment detected without PostgreSQL. SQLite is not supported on serverless containers. Falling back to GCS/JSON files.");
+      console.warn("Vercel environment detected without MySQL configuration. SQLite is not supported in serverless containers. Falling back to local files.");
       isSqlSupported = false;
     } else {
       try {
@@ -75,22 +107,19 @@ async function query(text, params) {
     throw new Error("SQL database is not supported or initialized in this environment.");
   }
 
-  if (isPostgres && pgPool) {
-    const res = await pgPool.query(text, params);
-    return res;
+  if (isMySQL && mysqlPool) {
+    const [rows] = await mysqlPool.execute(text, params || []);
+    return { rows };
   } else if (sqliteDb) {
-    // Convert SQLite query to match PG parameterized query style ($1, $2, etc. -> ?, ?, etc.)
-    const sqliteText = text.replace(/\$\d+/g, '?');
-    
     return new Promise((resolve, reject) => {
-      const isSelect = sqliteText.trim().toUpperCase().startsWith('SELECT');
+      const isSelect = text.trim().toUpperCase().startsWith('SELECT');
       if (isSelect) {
-        sqliteDb.all(sqliteText, params || [], (err, rows) => {
+        sqliteDb.all(text, params || [], (err, rows) => {
           if (err) return reject(err);
           resolve({ rows });
         });
       } else {
-        sqliteDb.run(sqliteText, params || [], function(err) {
+        sqliteDb.run(text, params || [], function(err) {
           if (err) return reject(err);
           resolve({ rows: [], lastID: this.lastID, changes: this.changes });
         });
@@ -102,20 +131,14 @@ async function query(text, params) {
 }
 
 async function saveResponse(id, timestamp, answers) {
-  if (!isSqlSupported) {
-    throw new Error("SQL storage is unavailable.");
-  }
   const answersStr = JSON.stringify(answers);
   await query(
-    `INSERT INTO responses (id, timestamp, answers) VALUES ($1, $2, $3)`,
+    `INSERT INTO responses (id, timestamp, answers) VALUES (?, ?, ?)`,
     [id, timestamp, answersStr]
   );
 }
 
 async function getResponses() {
-  if (!isSqlSupported) {
-    throw new Error("SQL storage is unavailable.");
-  }
   const result = await query(`SELECT id, timestamp, answers FROM responses ORDER BY timestamp DESC`);
   return result.rows.map(row => ({
     id: row.id,
@@ -125,10 +148,7 @@ async function getResponses() {
 }
 
 async function deleteResponse(id) {
-  if (!isSqlSupported) {
-    throw new Error("SQL storage is unavailable.");
-  }
-  await query(`DELETE FROM responses WHERE id = $1`, [id]);
+  await query(`DELETE FROM responses WHERE id = ?`, [id]);
 }
 
 module.exports = {
@@ -137,10 +157,10 @@ module.exports = {
   saveResponse,
   getResponses,
   deleteResponse,
-  isPostgres: () => isPostgres,
+  isPostgres: () => isMySQL, // Kept for backend status compatibility name
   getDbInfo: () => ({
-    type: isPostgres ? 'PostgreSQL' : (isSqlSupported ? 'SQLite' : 'None'),
-    path: isPostgres ? null : (isSqlSupported ? sqlitePath : null),
-    connected: isPostgres ? !!pgPool : (isSqlSupported ? !!sqliteDb : false)
+    type: isMySQL ? 'MySQL' : (isSqlSupported ? 'SQLite' : 'None'),
+    path: isMySQL ? null : (isSqlSupported ? sqlitePath : null),
+    connected: isMySQL ? !!mysqlPool : (isSqlSupported ? !!sqliteDb : false)
   })
 };
