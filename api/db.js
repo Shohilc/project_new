@@ -1,6 +1,5 @@
 require('dotenv').config();
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3');
 const path = require('path');
 const fs = require('fs');
 
@@ -8,6 +7,7 @@ const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL ||
 let isPostgres = false;
 let pgPool = null;
 let sqliteDb = null;
+let isSqlSupported = true;
 
 // Determine directory for SQLite
 const DATA_DIR = process.env.VERCEL 
@@ -40,28 +40,45 @@ async function init() {
   }
 
   if (!isPostgres) {
-    console.log(`Initializing SQLite database at: ${sqlitePath}`);
-    sqliteDb = new sqlite3.Database(sqlitePath);
+    if (process.env.VERCEL) {
+      console.warn("Vercel environment detected without PostgreSQL. SQLite is not supported on serverless containers. Falling back to GCS/JSON files.");
+      isSqlSupported = false;
+    } else {
+      try {
+        console.log(`Initializing SQLite database at: ${sqlitePath}`);
+        const sqlite3 = require('sqlite3');
+        sqliteDb = new sqlite3.Database(sqlitePath);
+      } catch (err) {
+        console.error("Failed to initialize SQLite client:", err.message);
+        isSqlSupported = false;
+      }
+    }
   }
 
-  // Create table if not exists
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS responses (
-      id VARCHAR(50) PRIMARY KEY,
-      timestamp BIGINT NOT NULL,
-      answers TEXT NOT NULL
-    )
-  `;
+  if (isSqlSupported) {
+    // Create table if not exists
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS responses (
+        id VARCHAR(50) PRIMARY KEY,
+        timestamp BIGINT NOT NULL,
+        answers TEXT NOT NULL
+      )
+    `;
 
-  await query(createTableQuery);
-  console.log("Database schema checked/created successfully.");
+    await query(createTableQuery);
+    console.log("Database schema checked/created successfully.");
+  }
 }
 
 async function query(text, params) {
+  if (!isSqlSupported) {
+    throw new Error("SQL database is not supported or initialized in this environment.");
+  }
+
   if (isPostgres && pgPool) {
     const res = await pgPool.query(text, params);
     return res;
-  } else {
+  } else if (sqliteDb) {
     // Convert SQLite query to match PG parameterized query style ($1, $2, etc. -> ?, ?, etc.)
     const sqliteText = text.replace(/\$\d+/g, '?');
     
@@ -79,10 +96,15 @@ async function query(text, params) {
         });
       }
     });
+  } else {
+    throw new Error("No database client initialized.");
   }
 }
 
 async function saveResponse(id, timestamp, answers) {
+  if (!isSqlSupported) {
+    throw new Error("SQL storage is unavailable.");
+  }
   const answersStr = JSON.stringify(answers);
   await query(
     `INSERT INTO responses (id, timestamp, answers) VALUES ($1, $2, $3)`,
@@ -91,6 +113,9 @@ async function saveResponse(id, timestamp, answers) {
 }
 
 async function getResponses() {
+  if (!isSqlSupported) {
+    throw new Error("SQL storage is unavailable.");
+  }
   const result = await query(`SELECT id, timestamp, answers FROM responses ORDER BY timestamp DESC`);
   return result.rows.map(row => ({
     id: row.id,
@@ -98,7 +123,11 @@ async function getResponses() {
     answers: JSON.parse(row.answers)
   }));
 }
+
 async function deleteResponse(id) {
+  if (!isSqlSupported) {
+    throw new Error("SQL storage is unavailable.");
+  }
   await query(`DELETE FROM responses WHERE id = $1`, [id]);
 }
 
@@ -110,8 +139,8 @@ module.exports = {
   deleteResponse,
   isPostgres: () => isPostgres,
   getDbInfo: () => ({
-    type: isPostgres ? 'PostgreSQL' : 'SQLite',
-    path: isPostgres ? null : sqlitePath,
-    connected: isPostgres ? !!pgPool : !!sqliteDb
+    type: isPostgres ? 'PostgreSQL' : (isSqlSupported ? 'SQLite' : 'None'),
+    path: isPostgres ? null : (isSqlSupported ? sqlitePath : null),
+    connected: isPostgres ? !!pgPool : (isSqlSupported ? !!sqliteDb : false)
   })
 };
