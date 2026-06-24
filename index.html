@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🎉 Lucky Dip Fun Quiz – UVCE Chetana</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --glass-bg: rgba(255,255,255,0.18);
+  --glass-border: rgba(255,255,255,0.35);
+  --glass-shadow: rgba(80,0,120,0.18);
+  --text: #2d1a4a;
+  --radius: 22px;
+  --tr: 0.35s cubic-bezier(.4,0,.2,1);
+}
+
+body {
+  min-height: 100vh;
+  font-family: 'Nunito', sans-serif;
+  background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 25%, #ffecd2 50%, #a1c4fd 75%, #c2e9fb 100%);
+  background-size: 400% 400%;
+  animation: gradShift 12s ease infinite;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 32px 16px 60px;
+  overflow-x: hidden;
+}
+@keyframes gradShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── QUIZ WRAPPER ── */
+.quiz-wrapper {
+  width: 100%; max-width: 580px;
+  display: flex; flex-direction: column; gap: 20px;
+  position: relative; z-index: 1;
+}
+
+/* ── GLASS CARD BASE ── */
+.glass {
+  background: var(--glass-bg);
+  border: 1.5px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px var(--glass-shadow);
+}
+
+/* ── HEADER ── */
+.header-card {
+  padding: 36px 32px 28px;
+  text-align: center;
+  animation: slideDown 0.6s var(--tr) both;
+}
+.header-emoji { font-size: 3rem; display: block; margin-bottom: 8px; animation: bounce 1.8s ease infinite; }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+h1 { font-size: clamp(1.4rem,5vw,2rem); font-weight: 900; color: var(--text); letter-spacing: -0.5px; }
+.subtitle { margin-top: 10px; font-size: 0.95rem; color: #5a3d7a; font-weight: 600; }
+.fun-instruction { margin-top: 14px; background: rgba(255,255,255,0.45); border: 2px dashed rgba(179,107,212,0.5); border-radius: 14px; padding: 12px 18px; font-size: 0.95rem; font-weight: 900; color: #6b21a8; line-height: 1.5; }
+
+/* ── PROGRESS ── */
+.progress-wrap {
+  border-radius: 50px;
+  box-shadow: 0 4px 20px var(--glass-shadow);
+  padding: 14px 24px;
+  display: flex; align-items: center; gap: 14px;
+  animation: slideDown 0.7s var(--tr) both;
+}
+.progress-label { font-size: 0.85rem; font-weight: 800; color: var(--text); white-space: nowrap; min-width: 60px; }
+.progress-track { flex:1; height:10px; background:rgba(255,255,255,0.35); border-radius:50px; overflow:hidden; }
+.progress-fill { height:100%; width:0%; background:linear-gradient(90deg,#f7c948,#ff6fd8,#a18cd1); border-radius:50px; transition:width 0.5s cubic-bezier(.4,0,.2,1); }
+
+/* ── QUESTION CARD ── */
+.question-card {
+  padding: 28px 28px 24px;
+  display: none; opacity: 0; transform: translateY(20px);
+}
+.question-card.active { display: block; animation: cardIn 0.4s var(--tr) forwards; }
+.question-card.exit   { animation: cardOut 0.3s var(--tr) forwards; }
+@keyframes cardIn  { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+@keyframes cardOut { from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-20px)} }
+
+.q-number { font-size:0.78rem; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:#b36bd4; margin-bottom:6px; }
+.q-text { font-size:1.12rem; font-weight:800; color:var(--text); margin-bottom:6px; line-height:1.3; }
+.q-hint { font-size:0.82rem; font-weight:600; color:#7a5da0; margin-bottom:14px; font-style:italic; }
+
+/* inputs */
+.q-input {
+  width:100%; padding:13px 16px;
+  border-radius:12px; border:2px solid var(--glass-border);
+  background:rgba(255,255,255,0.55);
+  font-family:'Nunito',sans-serif; font-size:1rem; font-weight:700; color:var(--text);
+  outline:none; transition:border-color var(--tr),box-shadow var(--tr);
+}
+.q-input:focus { border-color:#b36bd4; box-shadow:0 0 0 3px rgba(179,107,212,0.18); background:rgba(255,255,255,0.75); }
+
+/* choice buttons */
+.choices { display:flex; flex-wrap:wrap; gap:10px; }
+.choice-btn {
+  flex: 1 1 calc(50% - 10px); min-width:130px;
+  padding:12px 10px; border-radius:14px;
+  border:2px solid var(--glass-border);
+  background:rgba(255,255,255,0.45);
+  font-family:'Nunito',sans-serif; font-size:0.92rem; font-weight:800; color:var(--text);
+  cursor:pointer; transition:all var(--tr); text-align:center;
+  position:relative; overflow:hidden;
+}
+.choice-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,#f7c948,#ff6fd8); opacity:0; transition:opacity var(--tr); border-radius:12px; }
+.choice-btn span { position:relative; z-index:1; }
+.choice-btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(179,107,212,0.25); }
+.choice-btn:hover::before { opacity:0.15; }
+.choice-btn.selected { border-color:#b36bd4; background:rgba(179,107,212,0.2); box-shadow:0 4px 18px rgba(179,107,212,0.3); transform:translateY(-2px); }
+.choice-btn.selected::before { opacity:0.22; }
+
+/* nav */
+.nav-row { display:flex; justify-content:space-between; gap:10px; margin-top:20px; }
+.nav-btn { flex:1; padding:13px 10px; border-radius:14px; border:none; font-family:'Nunito',sans-serif; font-size:1rem; font-weight:800; cursor:pointer; transition:all var(--tr); }
+.btn-prev { background:rgba(255,255,255,0.5); color:var(--text); border:2px solid var(--glass-border); }
+.btn-prev:hover { background:rgba(255,255,255,0.8); }
+.btn-next { background:linear-gradient(135deg,#b36bd4,#ff6fd8); color:#fff; box-shadow:0 4px 20px rgba(179,107,212,0.4); }
+.btn-next:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(179,107,212,0.5); }
+.btn-submit { background:linear-gradient(135deg,#f7c948,#ff8c42); color:#fff; box-shadow:0 4px 20px rgba(247,201,72,0.5); }
+.btn-submit:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(247,201,72,0.6); }
+
+.error-hint { color:#c0392b; font-size:0.82rem; font-weight:700; margin-top:8px; display:none; }
+.error-hint.show { display:block; }
+
+@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
+.shake { animation:shake 0.4s ease; }
+
+/* ── THANK YOU ── */
+.thankyou-card {
+  display:none; padding:48px 32px; text-align:center;
+  animation:popIn 0.6s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes popIn { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
+.thankyou-card .big-emoji { font-size:3.5rem; display:block; margin-bottom:16px; animation:spin 0.7s ease; }
+@keyframes spin { from{transform:rotate(-30deg) scale(0.5)} to{transform:rotate(0deg) scale(1)} }
+.thankyou-card h2 { font-size:1.75rem; font-weight:900; color:var(--text); margin-bottom:12px; }
+.thankyou-card p { font-size:1rem; font-weight:600; color:#5a3d7a; line-height:1.7; }
+
+/* Karnataka flag */
+.flag-wrap { margin: 28px auto 0; width: 180px; }
+.kflag {
+  width:180px; height:110px; border-radius:8px;
+  overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,0.18);
+  display:flex; flex-direction:column; position:relative;
+  animation: flagWave 2.5s ease-in-out infinite;
+  transform-origin: left center;
+}
+@keyframes flagWave {
+  0%,100% { transform: perspective(300px) rotateY(0deg); }
+  25%      { transform: perspective(300px) rotateY(4deg); }
+  75%      { transform: perspective(300px) rotateY(-4deg); }
+}
+.kflag-top    { flex:1; background:#FFD520; }
+.kflag-bottom { flex:1; background:#CC0000; }
+.flag-pole {
+  width:6px; height:130px; background:linear-gradient(#c8a200,#8b6e00);
+  border-radius:3px; margin: 0 auto 0 20px;
+}
+.gift-row { display:flex; justify-content:center; gap:12px; margin-top:22px; flex-wrap:wrap; }
+.gift-badge {
+  background:linear-gradient(135deg,rgba(247,201,72,0.35),rgba(255,111,216,0.25));
+  border:2px solid rgba(247,201,72,0.5); border-radius:50px;
+  padding:9px 18px; font-size:0.9rem; font-weight:800; color:var(--text);
+}
+
+/* ── CONFETTI ── */
+#confetti-canvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:1000; }
+
+/* ── ADMIN PANEL ── */
+#adminBtn {
+  position:fixed; bottom:18px; right:18px; z-index:999;
+  background:rgba(45,26,74,0.85); color:#fff;
+  border:none; border-radius:50px; padding:10px 18px;
+  font-family:'Nunito',sans-serif; font-size:0.82rem; font-weight:800;
+  cursor:pointer; backdrop-filter:blur(8px);
+  box-shadow:0 4px 18px rgba(0,0,0,0.25);
+  transition:all 0.2s;
+}
+#adminBtn:hover { background:#b36bd4; transform:translateY(-2px); }
+
+/* login overlay */
+#adminLogin, #adminPanel {
+  display:none; position:fixed; inset:0; z-index:2000;
+  background:rgba(20,5,40,0.75); backdrop-filter:blur(8px);
+  align-items:center; justify-content:center;
+  padding:20px;
+}
+#adminLogin.show, #adminPanel.show { display:flex; }
+
+.login-box {
+  background:#fff; border-radius:22px; padding:40px 36px;
+  max-width:360px; width:100%; text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  animation:popIn 0.4s cubic-bezier(.34,1.56,.64,1) both;
+}
+.login-box h3 { font-size:1.4rem; font-weight:900; color:var(--text); margin-bottom:6px; }
+.login-box p { font-size:0.85rem; color:#888; margin-bottom:22px; }
+.login-box input {
+  width:100%; padding:12px 16px; border-radius:12px;
+  border:2px solid #e0d0f0; font-family:'Nunito',sans-serif;
+  font-size:1rem; font-weight:700; color:var(--text); outline:none;
+  margin-bottom:14px; transition:border-color 0.2s;
+}
+.login-box input:focus { border-color:#b36bd4; }
+.login-box button {
+  width:100%; padding:13px; border-radius:12px; border:none;
+  background:linear-gradient(135deg,#b36bd4,#ff6fd8); color:#fff;
+  font-family:'Nunito',sans-serif; font-size:1rem; font-weight:800;
+  cursor:pointer; transition:all 0.2s;
+}
+.login-box button:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(179,107,212,0.4); }
+.login-err { color:#c0392b; font-size:0.82rem; font-weight:700; margin-top:8px; display:none; }
+.login-err.show { display:block; }
+.login-cancel { display:block; margin-top:14px; font-size:0.85rem; font-weight:700; color:#888; cursor:pointer; text-decoration:underline; }
+
+/* admin panel inner */
+.panel-inner {
+  background:#f4f0fb; border-radius:22px;
+  width:100%; max-width:860px; max-height:90vh;
+  display:flex; flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  overflow:hidden;
+  animation:popIn 0.4s cubic-bezier(.34,1.56,.64,1) both;
+}
+.panel-header {
+  background:linear-gradient(135deg,#2d1a4a,#b36bd4);
+  padding:20px 28px; display:flex; align-items:center; justify-content:space-between;
+}
+.panel-header h3 { color:#fff; font-size:1.2rem; font-weight:900; }
+.panel-header .hrow { display:flex; gap:10px; align-items:center; }
+.panel-close {
+  background:rgba(255,255,255,0.2); border:none; color:#fff;
+  border-radius:50%; width:36px; height:36px; font-size:1.1rem;
+  cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center;
+}
+.panel-close:hover { background:rgba(255,255,255,0.4); }
+.export-btn {
+  background:#f7c948; border:none; color:#2d1a4a; border-radius:50px;
+  padding:8px 18px; font-family:'Nunito',sans-serif; font-size:0.85rem; font-weight:800;
+  cursor:pointer; transition:all 0.2s;
+}
+.export-btn:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(247,201,72,0.5); }
+
+.panel-body { flex:1; overflow-y:auto; padding:24px; }
+.no-responses { text-align:center; padding:40px; color:#888; font-weight:700; font-size:1rem; }
+.response-count { font-size:0.85rem; font-weight:800; color:#b36bd4; margin-bottom:18px; }
+
+.resp-card {
+  background:#fff; border-radius:16px; margin-bottom:16px;
+  box-shadow:0 4px 16px rgba(80,0,120,0.08); overflow:hidden;
+}
+.resp-header {
+  background:linear-gradient(135deg,rgba(179,107,212,0.12),rgba(247,201,72,0.1));
+  padding:12px 18px; display:flex; justify-content:space-between; align-items:center;
+  border-bottom:1px solid #f0e8ff;
+}
+.resp-name { font-weight:900; color:var(--text); font-size:1rem; }
+.resp-time { font-size:0.75rem; color:#aaa; font-weight:700; }
+.resp-body { padding:14px 18px; display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; }
+.resp-field { }
+.resp-label { font-size:0.7rem; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#b36bd4; margin-bottom:2px; }
+.resp-val { font-size:0.9rem; font-weight:700; color:var(--text); }
+
+/* tabs */
+.panel-tabs {
+  display: flex;
+  background: rgba(45,26,74,0.03);
+  border-bottom: 2px solid #e5dbf4;
+  padding: 0 24px;
+}
+.panel-tab {
+  padding: 16px 24px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #7a5da0;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.25s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-tab:hover {
+  color: #b36bd4;
+  background: rgba(179,107,212,0.03);
+}
+.panel-tab.active {
+  color: #2d1a4a;
+  border-bottom-color: #b36bd4;
+}
+
+@media(max-width:480px) {
+  .header-card { padding:28px 20px 22px; }
+  .question-card { padding:22px 18px 20px; }
+  .choice-btn { flex:1 1 100%; min-width:unset; }
+  .thankyou-card { padding:36px 18px; }
+  .resp-body { grid-template-columns:1fr; }
+  .login-box { padding:30px 22px; }
+  .panel-header { padding:16px 18px; }
+  #gform-fields-container { grid-template-columns: 1fr !important; }
+}
+
+@keyframes slideDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<canvas id="confetti-canvas"></canvas>
+<button id="adminBtn" onclick="openAdmin()">🔐 Admin</button>
+
+<!-- Admin login overlay -->
+<div id="adminLogin">
+  <div class="login-box">
+    <h3>🔐 Admin Access</h3>
+    <p>Enter your password to view responses</p>
+    <input type="password" id="pwInput" placeholder="Password…" onkeydown="if(event.key==='Enter')tryLogin()" />
+    <div class="login-err" id="loginErr">Incorrect password. Try again.</div>
+    <button onclick="tryLogin()">Login →</button>
+    <span class="login-cancel" onclick="closeAdmin()">Cancel</span>
+  </div>
+</div>
+
+<!-- Admin responses panel -->
+<div id="adminPanel">
+  <div class="panel-inner">
+    <div class="panel-header">
+      <h3 style="color:#fff; font-size:1.2rem; font-weight:900;">🔐 Admin Dashboard</h3>
+      <button class="panel-close" onclick="document.getElementById('adminPanel').classList.remove('show')">✕</button>
+    </div>
+    <div class="panel-tabs">
+      <div class="panel-tab active" id="tabResponses" onclick="switchTab('responses')">📋 Responses</div>
+      <div class="panel-tab" id="tabGCS" onclick="switchTab('gcs')">☁️ Cloud Storage Setup</div>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div class="no-responses">No responses yet.</div>
+    </div>
+  </div>
+</div>
+
+<!-- QUIZ -->
+<div class="quiz-wrapper" id="quizWrapper">
+
+  <div class="header-card glass">
+    <span class="header-emoji">🎉</span>
+    <h1>Lucky Dip Fun Quiz</h1>
+    <p class="subtitle">Answer these fun questions and stand a chance to win a surprise gift!</p>
+    <p class="fun-instruction">⚡ Answer honestly... there's no right or wrong answer<br>(unless you say cereal before milk 😜)</p>
+  </div>
+
+  <div class="progress-wrap glass">
+    <span class="progress-label" id="progressLabel">1 / 12</span>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <div id="questionsArea"></div>
+
+  <!-- Thank you -->
+  <div class="thankyou-card glass" id="thankyouCard">
+    <span class="big-emoji">🎉</span>
+    <h2>Thank you for participating!</h2>
+    <p>Winners will be announced soon.<br/>Keep your fingers crossed — a surprise gift might be heading your way! 🎁</p>
+
+    <!-- Karnataka Flag -->
+    <div class="flag-wrap">
+      <div style="display:flex;align-items:flex-start;gap:0">
+        <div class="flag-pole"></div>
+        <div class="kflag">
+          <div class="kflag-top"></div>
+          <div class="kflag-bottom"></div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- View Result reveal -->
+    <div style="margin-top:28px;">
+      <button onclick="revealResult()" id="viewResultBtn" style="background:linear-gradient(135deg,#b36bd4,#ff6fd8);color:#fff;border:none;border-radius:50px;padding:14px 36px;font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;cursor:pointer;box-shadow:0 6px 24px rgba(179,107,212,0.45);transition:all 0.2s;letter-spacing:0.5px;">
+        👀 View Result
+      </button>
+      <div id="gorillaReveal" style="display:none;margin-top:18px;animation:popIn 0.5s cubic-bezier(.34,1.56,.64,1) both;">
+        <div style="border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(80,0,120,0.2);max-width:220px;margin:0 auto;border:3px solid rgba(255,255,255,0.5);">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Gorilla_sticking_out_her_tongue_in_SF_ZOO.jpg/440px-Gorilla_sticking_out_her_tongue_in_SF_ZOO.jpg" alt="Result" style="width:100%;display:block;" />
+        </div>
+      </div>
+    </div>
+
+    <div class="gift-row">
+      <span class="gift-badge">🎁 Surprise Gift</span>
+      <span class="gift-badge">🌟 Stay Tuned</span>
+      <span class="gift-badge">🍀 Good Luck!</span>
+    </div>
+  </div>
+
+<script>
+// ── ADMIN CREDENTIALS ──
+// 3 admins: you + 2 others
+const ADMIN_PASSWORDS = ["chetana2024", "uvceadmin1", "uvceadmin2"];
+// Change these passwords as needed!
+
+// ── STORAGE KEY ──
+const STORE_KEY = "uvce_quiz_responses";
+
+// Google Forms configuration and submission logic removed. Saved directly via backend API.
+
+function loadResponses() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch(e) { return []; }
+}
+function saveResponse(obj) {
+  const all = loadResponses();
+  all.push(obj);
+  localStorage.setItem(STORE_KEY, JSON.stringify(all));
+}
+
+// ── ADMIN ──
+function openAdmin() {
+  document.getElementById("adminLogin").classList.add("show");
+  document.getElementById("pwInput").value = "";
+  document.getElementById("loginErr").classList.remove("show");
+  setTimeout(() => document.getElementById("pwInput").focus(), 100);
+}
+function closeAdmin() {
+  document.getElementById("adminLogin").classList.remove("show");
+}
+function tryLogin() {
+  const pw = document.getElementById("pwInput").value.trim();
+  if (ADMIN_PASSWORDS.includes(pw)) {
+    document.getElementById("adminLogin").classList.remove("show");
+    openPanel();
+  } else {
+    document.getElementById("loginErr").classList.add("show");
+    document.getElementById("pwInput").value = "";
+    document.getElementById("pwInput").focus();
+  }
+}
+
+let currentTab = "responses";
+let loadedResponses = [];
+
+function openPanel() {
+  document.getElementById("adminPanel").classList.add("show");
+  switchTab("responses");
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  
+  // Update active tab styling
+  document.getElementById("tabResponses").classList.toggle("active", tab === "responses");
+  document.getElementById("tabGCS").classList.toggle("active", tab === "gcs");
+  
+  if (tab === "responses") {
+    renderPanel();
+  } else {
+    renderGCSSetup();
+  }
+}
+
+async function renderPanel() {
+  const body = document.getElementById("panelBody");
+  
+  body.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+      <div class="response-count" id="adminResponseCount" style="font-size:0.85rem; font-weight:800; color:#b36bd4;">
+        📊 Loading responses...
+      </div>
+      <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+    <div id="responsesContainer"></div>
+  `;
+  
+  let serverResponses = [];
+  let isFromCloud = false;
+  let serverStatus = { gcsConnected: false, isVercel: false };
+  
+  try {
+    const statusRes = await fetch("/api/status");
+    if (statusRes.ok) serverStatus = await statusRes.json();
+  } catch (e) {
+    console.error("Error checking server status:", e);
+  }
+  
+  try {
+    const res = await fetch("/api/responses");
+    if (!res.ok) throw new Error("Server responded with error");
+    const data = await res.json();
+    serverResponses = data.responses || [];
+    isFromCloud = data.isFromCloud;
+  } catch (e) {
+    console.error("Error fetching responses from server, using local fallback:", e);
+    body.insertAdjacentHTML('beforeend', `<div style="color: #c0392b; font-size:0.85rem; font-weight:700; margin-bottom:12px; text-align:center; background: rgba(192, 57, 43, 0.08); padding: 8px; border-radius: 8px;">⚠️ Failed to connect to server. Showing cached responses from local device only.</div>`);
+    serverResponses = loadResponses();
+  }
+  
+  loadedResponses = serverResponses;
+  
+  // Show a Warning Banner if running on Vercel without Cloud Storage
+  if (serverStatus.isVercel && !serverStatus.gcsConnected) {
+    body.insertAdjacentHTML('afterbegin', `
+      <div style="background:#fdf2f2; border:1.5px solid #f8b4b4; color:#9b1c1c; padding:14px 18px; border-radius:14px; font-size:0.88rem; font-weight:800; margin-bottom:20px; line-height:1.5;">
+        ⚠️ <strong>Vercel Stateless Warning:</strong> The server is running in a stateless serverless container on Vercel without Google Cloud Storage. Submissions are temporarily cached in memory (/tmp) but <strong>will be lost permanently</strong> when the Vercel function instances recycle. Go to the <strong>Cloud Storage Setup</strong> tab to link your GCP bucket for persistence.
+      </div>
+    `);
+  }
+  
+  const countEl = document.getElementById("adminResponseCount");
+  countEl.innerHTML = `📊 <strong>${serverResponses.length}</strong> response${serverResponses.length>1?'s':''} collected ${isFromCloud ? '<span style="color:green;">(Synced to GCS)</span>' : (serverStatus.isVercel ? '<span style="color:#c0392b;">(Temporary /tmp)</span>' : '<span style="color:#7a5da0;">(Local Backup)</span>')}`;
+  
+  const container = document.getElementById("responsesContainer");
+  if (!serverResponses.length) {
+    container.innerHTML = '<div class="no-responses">📭 No responses yet. Share the quiz link!</div>';
+    return;
+  }
+  
+  const qLabels = questions.map(q => q.shortLabel || q.label);
+  
+  serverResponses.forEach((r) => {
+    const card = document.createElement("div");
+    card.className = "resp-card";
+    const name = r.answers[0] || "Anonymous";
+    const date = new Date(r.timestamp).toLocaleString();
+    let fields = "";
+    r.answers.forEach((ans, i) => {
+      fields += `<div class="resp-field"><div class="resp-label">${qLabels[i]}</div><div class="resp-val">${ans || "—"}</div></div>`;
+    });
+    
+    const cloudIcon = isFromCloud || r.isSynced
+      ? `<span style="background:#e8f8f5; color:#117a65; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:10px; margin-left: 8px;">☁️ Cloud Storage</span>`
+      : (serverStatus.isVercel 
+          ? `<span style="background:#fdf2f2; color:#9b1c1c; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:10px; margin-left: 8px;">⚠️ Ephemeral /tmp</span>`
+          : `<span style="background:#fef9e7; color:#b7950b; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:10px; margin-left: 8px;">💻 Local Only</span>`);
+      
+    card.innerHTML = `
+      <div class="resp-header">
+        <span class="resp-name">👤 ${name}${cloudIcon}</span>
+        <span class="resp-time">${date}</span>
+      </div>
+      <div class="resp-body">${fields}</div>`;
+    container.appendChild(card);
+  });
+}
+
+async function renderGCSSetup() {
+  const body = document.getElementById("panelBody");
+  body.innerHTML = `<div style="text-align:center; padding:40px; color:#888; font-weight:700; font-size:1rem;">⏳ Checking connection to Google Cloud Storage...</div>`;
+  
+  let status = { gcsConnected: false, bucketName: null, localCount: 0, isVercel: false };
+  try {
+    const res = await fetch("/api/status");
+    if (res.ok) {
+      status = await res.json();
+    }
+  } catch (e) {
+    console.error("Error fetching status:", e);
+  }
+
+  const connectionBadge = status.gcsConnected
+    ? `<span style="background:#e8f8f5; color:#117a65; font-size:0.9rem; font-weight:900; padding:6px 14px; border-radius:50px; display:inline-flex; align-items:center; gap:6px;">🟢 Connected</span>`
+    : `<span style="background:#fadbd8; color:#78281f; font-size:0.9rem; font-weight:900; padding:6px 14px; border-radius:50px; display:inline-flex; align-items:center; gap:6px;">🔴 Disconnected (Local Fallback)</span>`;
+
+  body.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:20px;">
+      <div style="background:#fff; border-radius:16px; padding:24px; box-shadow:0 4px 16px rgba(80,0,120,0.06);">
+        <h4 style="margin-bottom:12px; font-weight:900; color:#2d1a4a; font-size:1.15rem;">☁️ Google Cloud Storage Status</h4>
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px; border-bottom:1px solid #f0e8ff; padding-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <span style="font-weight:800; color:#5a3d7a;">Connection Status</span>
+            ${connectionBadge}
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <span style="font-weight:800; color:#5a3d7a;">GCS Storage Bucket</span>
+            <code style="background:#f4f0fb; padding:4px 10px; border-radius:6px; font-weight:700; color:#b36bd4;">${status.bucketName || 'Not Configured'}</code>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <span style="font-weight:800; color:#5a3d7a;">${status.isVercel ? 'Temporary /tmp Backups' : 'Local Saved Responses (Backup)'}</span>
+            <span style="font-weight:900; color:#2d1a4a;">${status.localCount} responses</span>
+          </div>
+        </div>
+        
+        <h5 style="margin-bottom:10px; font-weight:800; color:#2d1a4a;">How to configure Google Cloud Storage</h5>
+        <p style="font-size:0.85rem; color:#666; line-height:1.6; margin-bottom:14px;">
+          To persist quiz responses in the cloud, you need to set up Google Cloud Storage on the backend:
+        </p>
+        <ol style="font-size:0.85rem; color:#555; line-height:1.8; padding-left:20px; display:flex; flex-direction:column; gap:12px;">
+          <li>Create a Google Cloud Platform (GCP) project, enable the <strong>Cloud Storage JSON API</strong>, create a bucket, and download a Service Account JSON private key.</li>
+          <li><strong>For Local Testing (.env)</strong>: Add variables to your local <code>.env</code> file:
+            <pre style="background:#2d1a4a; color:#fbc2eb; padding:12px; border-radius:10px; font-family:monospace; margin-top:8px; overflow-x:auto; font-size:0.8rem; line-height:1.4;">PORT=3000\nGCS_BUCKET_NAME=your-bucket-name\nGOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/service-account.json</pre>
+          </li>
+          <li><strong>For Vercel Deployment</strong>: Go to your Vercel Dashboard under <strong>Settings &gt; Environment Variables</strong>, and add these variables (do not upload the key file):
+            <ul style="padding-left:20px; margin-top:6px; display:flex; flex-direction:column; gap:4px;">
+              <li><code>GCS_BUCKET_NAME</code> : your-bucket-name</li>
+              <li><code>GCP_PROJECT_ID</code> : your-gcp-project-id</li>
+              <li><code>GCP_CLIENT_EMAIL</code> : your-service-account-client-email</li>
+              <li><code>GCP_PRIVATE_KEY</code> : the private key string from the service account JSON (include the full string including <code>-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n</code>, replacing actual newlines with literal <code>\\n</code>)</li>
+            </ul>
+          </li>
+          <li>Redeploy or restart the server. The connection status will automatically update to <strong>Connected</strong>.</li>
+        </ol>
+      </div>
+    </div>
+  `;
+}
+
+function exportCSV() {
+  const responses = loadedResponses.length ? loadedResponses : loadResponses();
+  if (!responses.length) { alert("No responses to export yet!"); return; }
+  const qLabels = questions.map(q => q.shortLabel || q.label);
+  const header = ["Timestamp", ...qLabels].map(l => `"${l}"`).join(",");
+  const rows = responses.map(r => {
+    const ts = new Date(r.timestamp).toLocaleString();
+    return [`"${ts}"`, ...r.answers.map(a => `"${(a||"").replace(/"/g,'""')}"`)] .join(",");
+  });
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "chetana_quiz_responses.csv";
+  a.click();
+}
+
+// ── QUESTIONS ──
+const questions = [
+  {
+    id:1, shortLabel:"Name",
+    label: "What's your full name?",
+    hint: "✏️ Write your complete name with address",
+    type: "text", placeholder: "Your full name & address…"
+  },
+  {
+    id:2, shortLabel:"Branch",
+    label: "Which branch are you in?",
+    hint: "🏫 Select your branch / department",
+    type: "choice",
+    options: ["💻 CSE", "🖥️ ISE", "🤖 AIML", "⚡ EEE", "📡 EC", "⚙️ MECH", "🏗️ CIVIL"]
+  },
+  {
+    id:3, shortLabel:"Drink Preference",
+    label: "What's your go-to drink?",
+    hint: "☕ Pick your favorite beverage!",
+    type: "choice",
+    options: ["☕ Coffee", "🍵 Tea", "🌿 Neem Leaf Juice", "🥥 Coconut Oil"]
+  },
+  {
+    id:4, shortLabel:"Best Place",
+    label: "Which is your best place?",
+    hint: "🌏 Where do you love to be?",
+    type: "choice",
+    options: ["🏖️ Beach", "⛰️ Mountains", "🏛️ Chetana Club", "🎓 UVCE Campus"]
+  },
+  {
+    id:5, shortLabel:"Best Time",
+    label: "What's your best time?",
+    hint: "⏰ When are you most alive?",
+    type: "choice",
+    options: ["🌅 Morning", "🌙 Night", "🤝 Chetana Meeting", "📚 Class Hours"]
+  },
+  {
+    id:6, shortLabel:"Favorite Pet",
+    label: "Which is your favorite pet?",
+    hint: "🐾 Choose your spirit animal!",
+    type: "choice",
+    options: ["🪞 Myself", "🫏 Donkey", "🐒 Monkey", "🦕 Dinosaur"]
+  },
+  {
+    id:7, shortLabel:"Favorite Color",
+    label: "What's your favorite color?",
+    hint: "🎨 Name any color you love!",
+    type: "text", placeholder: "E.g. Midnight blue, Coral…"
+  },
+  {
+    id:8, shortLabel:"Phone OS",
+    label: "Android or iPhone?",
+    hint: "📱 Pick your side!",
+    type: "choice",
+    options: ["🤖 Android", "🍎 iPhone"]
+  },
+  {
+    id:9, shortLabel:"Phone Brand",
+    label: "What's your phone brand?",
+    hint: "📱 Type the brand name",
+    type: "text", placeholder: "E.g. Samsung, Apple, OnePlus…"
+  },
+  {
+    id:10, shortLabel:"Phone Model",
+    label: "What's your phone model?",
+    hint: "📲 Full model name please",
+    type: "text", placeholder: "E.g. Galaxy S24, iPhone 15 Pro…"
+  },
+  {
+    id:11, shortLabel:"Favorite Pen",
+    label: "What's your favorite pen? 🖊️",
+    hint: "✒️ The one you can't write without!",
+    type: "text", placeholder: "E.g. Reynolds 045, Cello Technotip…"
+  },
+  {
+    id:12, shortLabel:"Favorite Subject",
+    label: "What's your favorite subject at UVCE?",
+    hint: "📖 The one you actually enjoy!",
+    type: "text", placeholder: "E.g. Data Structures, VLSI, Thermodynamics…"
+  },
+];
+
+let current = 0;
+const answers = Array(questions.length).fill("");
+const area = document.getElementById("questionsArea");
+
+// build cards
+questions.forEach((q, i) => {
+  const card = document.createElement("div");
+  card.className = "question-card glass" + (i === 0 ? " active" : "");
+  card.id = "qcard-" + i;
+
+  let inputHTML = "";
+  if (q.type === "text") {
+    inputHTML = `<input class="q-input" id="qinput-${i}" type="text" placeholder="${q.placeholder}" autocomplete="off" />`;
+  } else {
+    inputHTML = `<div class="choices" id="qchoices-${i}">
+      ${q.options.map(opt => `<button class="choice-btn" data-qi="${i}" data-val="${opt}"><span>${opt}</span></button>`).join("")}
+    </div>`;
+  }
+
+  const isLast = i === questions.length - 1;
+  const prevBtn = i > 0 ? `<button class="nav-btn btn-prev" onclick="navigate(-1)">← Back</button>` : `<span></span>`;
+  const nextBtn = isLast
+    ? `<button class="nav-btn btn-submit" onclick="submitQuiz()">🎉 Submit</button>`
+    : `<button class="nav-btn btn-next" onclick="navigate(1)">Next →</button>`;
+
+  card.innerHTML = `
+    <div class="q-number">Question ${i + 1} of ${questions.length}</div>
+    <div class="q-text">${q.label}</div>
+    ${q.hint ? `<div class="q-hint">${q.hint}</div>` : ""}
+    ${inputHTML}
+    <p class="error-hint" id="err-${i}">⚠️ Please answer this question to continue.</p>
+    <div class="nav-row">${prevBtn}${nextBtn}</div>
+  `;
+  area.appendChild(card);
+});
+
+// choice clicks
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".choice-btn");
+  if (!btn) return;
+  const qi = parseInt(btn.dataset.qi);
+  answers[qi] = btn.dataset.val;
+  document.querySelectorAll(`#qchoices-${qi} .choice-btn`).forEach(b => b.classList.remove("selected"));
+  btn.classList.add("selected");
+  hideError(qi);
+});
+
+// text inputs
+document.addEventListener("input", e => {
+  if (!e.target.classList.contains("q-input")) return;
+  const qi = parseInt(e.target.id.replace("qinput-",""));
+  answers[qi] = e.target.value.trim();
+  if (answers[qi]) hideError(qi);
+});
+
+function navigate(dir) {
+  if (dir === 1 && !validateCurrent()) return;
+  const oldCard = document.getElementById("qcard-" + current);
+  oldCard.classList.add("exit");
+  setTimeout(() => {
+    oldCard.classList.remove("active","exit");
+    current += dir;
+    if (current < 0) current = 0;
+    if (current >= questions.length) current = questions.length - 1;
+    const newCard = document.getElementById("qcard-" + current);
+    newCard.classList.add("active");
+    updateProgress();
+    const inp = document.getElementById("qinput-" + current);
+    if (inp && answers[current]) inp.value = answers[current];
+  }, 280);
+}
+
+function validateCurrent() {
+  const q = questions[current];
+  const val = q.type === "text"
+    ? (document.getElementById("qinput-" + current)?.value.trim() || "")
+    : answers[current];
+  if (!val) {
+    showError(current);
+    const card = document.getElementById("qcard-" + current);
+    card.classList.add("shake");
+    setTimeout(() => card.classList.remove("shake"), 450);
+    return false;
+  }
+  answers[current] = val;
+  return true;
+}
+
+function showError(i) { document.getElementById("err-"+i).classList.add("show"); }
+function hideError(i) { document.getElementById("err-"+i).classList.remove("show"); }
+
+function updateProgress() {
+  const pct = ((current + 1) / questions.length) * 100;
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${current + 1} / ${questions.length}`;
+}
+
+function submitQuiz() {
+  if (!validateCurrent()) return;
+  
+  // Submit answers to Backend Server
+  fetch("/api/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ answers: [...answers] })
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("Response submitted to backend successfully:", data);
+    saveResponse({ timestamp: Date.now(), answers: [...answers], id: data.id, isSynced: data.storedInCloud });
+  })
+  .catch(err => {
+    console.error("Error submitting to backend, falling back to local storage:", err);
+    saveResponse({ timestamp: Date.now(), answers: [...answers], id: null, isSynced: false });
+  });
+
+  // hide quiz & show thank you
+  document.querySelector(".header-card").style.display = "none";
+  document.querySelector(".progress-wrap").style.display = "none";
+  area.style.display = "none";
+  document.getElementById("thankyouCard").style.display = "block";
+  launchConfetti();
+}
+
+// ── CONFETTI ──
+function launchConfetti() {
+  const canvas = document.getElementById("confetti-canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const colors = ["#f7c948","#ff6fd8","#a18cd1","#43e97b","#fa8231","#00cec9","#fd79a8","#fdcb6e","#FFD520","#CC0000"];
+  const pieces = Array.from({length:180}, () => ({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height - canvas.height,
+    r: Math.random()*7+4,
+    color: colors[Math.floor(Math.random()*colors.length)],
+    rot: Math.random()*360, vy: Math.random()*3.5+2, vx: (Math.random()-0.5)*2,
+    vrot: (Math.random()-0.5)*6, shape: Math.random()>0.5?"rect":"circle",
+    w: Math.random()*12+6, h: Math.random()*6+4, opacity:1
+  }));
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pieces.forEach(p => {
+      ctx.save(); ctx.globalAlpha = Math.max(0,p.opacity);
+      ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle = p.color;
+      if (p.shape==="circle") { ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fill(); }
+      else { ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); }
+      ctx.restore();
+      p.y+=p.vy; p.x+=p.vx; p.rot+=p.vrot;
+      if (frame>120) p.opacity-=0.008;
+    });
+    frame++;
+    if (frame<300) requestAnimationFrame(draw);
+    else ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+  draw();
+}
+
+function revealResult() {
+  document.getElementById("viewResultBtn").style.display = "none";
+  document.getElementById("gorillaReveal").style.display = "block";
+}
+
+updateProgress();
+</script>
+</body>
+</html>
