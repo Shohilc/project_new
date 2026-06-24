@@ -429,23 +429,6 @@ h1 { font-size: clamp(1.4rem,5vw,2rem); font-weight: 900; color: var(--text); le
       </div>
     </div>
 
-    <!-- View Result reveal -->
-    <div style="margin-top:28px;">
-      <button onclick="revealResult()" id="viewResultBtn" style="background:linear-gradient(135deg,#b36bd4,#ff6fd8);color:#fff;border:none;border-radius:50px;padding:14px 36px;font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;cursor:pointer;box-shadow:0 6px 24px rgba(179,107,212,0.45);transition:all 0.2s;letter-spacing:0.5px;">
-        👀 View Result
-      </button>
-      <div id="gorillaReveal" style="display:none;margin-top:18px;animation:popIn 0.5s cubic-bezier(.34,1.56,.64,1) both;">
-        <div style="border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(80,0,120,0.2);max-width:220px;margin:0 auto;border:3px solid rgba(255,255,255,0.5);">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Gorilla_sticking_out_her_tongue_in_SF_ZOO.jpg/440px-Gorilla_sticking_out_her_tongue_in_SF_ZOO.jpg" alt="Result" style="width:100%;display:block;" />
-        </div>
-      </div>
-    </div>
-
-    <div class="gift-row">
-      <span class="gift-badge">🎁 Surprise Gift</span>
-      <span class="gift-badge">🌟 Stay Tuned</span>
-      <span class="gift-badge">🍀 Good Luck!</span>
-    </div>
   </div>
 
 <script>
@@ -1016,10 +999,6 @@ function launchConfetti() {
   draw();
 }
 
-function revealResult() {
-  document.getElementById("viewResultBtn").style.display = "none";
-  document.getElementById("gorillaReveal").style.display = "block";
-}
 
 updateProgress();
 </script>
