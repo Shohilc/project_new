@@ -568,10 +568,10 @@ async function renderPanel() {
   loadedResponses = serverResponses;
   
   // Show a Warning Banner if running on Vercel without persistent SQL Database
-  if (currentServerStatus.isVercel && currentServerStatus.dbType !== 'PostgreSQL' && currentServerStatus.dbType !== 'MySQL') {
+  if (currentServerStatus.isVercel && currentServerStatus.dbType !== 'MySQL') {
     body.insertAdjacentHTML('afterbegin', `
       <div style="background:#fdf2f2; border:1.5px solid #f8b4b4; color:#9b1c1c; padding:14px 18px; border-radius:14px; font-size:0.88rem; font-weight:800; margin-bottom:20px; line-height:1.5;">
-        ⚠️ <strong>Database Connection Warning:</strong> The server is running on Vercel using local ephemeral storage (SQLite in /tmp). Submissions <strong>will be lost permanently</strong> when the serverless container recycles. Please configure the PostgreSQL or MySQL environment variables (<code>DATABASE_URL</code> or <code>MYSQL_URL</code>) in your Vercel Project Settings to ensure permanent SQL database storage.
+        ⚠️ <strong>Database Connection Warning:</strong> The server is running on Vercel using local ephemeral storage (SQLite in /tmp). Submissions <strong>will be lost permanently</strong> when the serverless container recycles. Please configure the MySQL environment variables (<code>DATABASE_URL</code> or <code>MYSQL_URL</code>) in your Vercel Project Settings to ensure permanent SQL database storage.
       </div>
     `);
   }
@@ -674,7 +674,7 @@ function renderResponseData() {
         fields += `<div class="resp-field"><div class="resp-label">${qLabels[i]}</div><div class="resp-val">${ans || "—"}</div></div>`;
       });
       
-      const dbLabel = currentServerStatus.dbType === 'PostgreSQL' || currentServerStatus.dbType === 'MySQL'
+      const dbLabel = currentServerStatus.dbType === 'MySQL'
         ? `<span style="background:#e8f8f5; color:#117a65; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:10px; margin-left: 8px;">🗄️ ${currentServerStatus.dbType} (Cloud)</span>`
         : (currentServerStatus.isVercel 
             ? `<span style="background:#fdf2f2; color:#9b1c1c; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:10px; margin-left: 8px;">⚠️ Ephemeral /tmp</span>`
